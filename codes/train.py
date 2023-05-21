@@ -286,6 +286,7 @@ class Trainer:
             if self.rank <= 0:
                 for i, (loss_mel_ce, state) in enumerate(self.top_models):
                     self.logger.info('Saving top model %d with loss %.4e.' % (i+1, loss_mel_ce))
+                    print('Saving top model %d with loss %.4e.' % (i+1, loss_mel_ce))
                     model_path = os.path.join(self.opt['path']['models'], 'model_%d.pth' % (i+1))
                     torch.save(state['model'], model_path)
 
