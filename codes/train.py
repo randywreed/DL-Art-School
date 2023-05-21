@@ -238,12 +238,14 @@ class Trainer:
                 loss_mel_ce = logs['loss_mel_ce']
                 if len(self.top_models) < 10 or loss_mel_ce < self.top_models[-1][0]:
                     state = {
-                        'model': self.model.state_dict(),
+                        'model': {},
                         'loss_mel_ce': loss_mel_ce,
                         'epoch': self.epoch,
                         'iter': self.current_step,
-                        'total_data_processed': self.total_training_data_encountered
+                        'total_data_processed': self.total_training_data_encountered 
                     }
+                    for net in self.model.networks.values():
+                        state['model'][net] = net.state_dict() 
                     if len(self.top_models) >= 10:
                         # Remove the model with the highest loss
                         self.top_models.pop()
