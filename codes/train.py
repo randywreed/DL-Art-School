@@ -43,6 +43,8 @@ class Trainer:
         self.val_compute_fea = opt_get(opt, ['eval', 'compute_fea'], False)
         self.current_step = 0
         self.total_training_data_encountered = 0
+        self.top_models = []
+
 
         #### loading resume state if exists
         if opt['path'].get('resume_state', None):
@@ -210,6 +212,7 @@ class Trainer:
         _t = time()
         self.model.feed_data(train_data, self.current_step)
         gradient_norms_dict = self.model.optimize_parameters(self.current_step, return_grad_norms=will_log)
+        
         iteration_rate = (time() - _t) / batch_size
         if self._profile:
             print("Model feed + step: %f" % (time() - _t))
@@ -230,6 +233,23 @@ class Trainer:
             if self.dataset_debugger is not None:
                 logs.update(self.dataset_debugger.get_debugging_map())
             logs.update(gradient_norms_dict)
+            # Update the top models list
+            if 'loss_mel_ce' in logs:
+                loss_mel_ce = logs['loss_mel_ce']
+                if len(self.top_models) < 10 or loss_mel_ce < self.top_models[-1][0]:
+                    state = {
+                        'model': self.model.state_dict(),
+                        'loss_mel_ce': loss_mel_ce,
+                        'epoch': self.epoch,
+                        'iter': self.current_step,
+                        'total_data_processed': self.total_training_data_encountered
+                    }
+                    if len(self.top_models) >= 10:
+                        # Remove the model with the highest loss
+                        self.top_models.pop()
+                    self.top_models.append((loss_mel_ce, state))
+                    self.top_models.sort(key=lambda x: x[0])
+
             message = '[epoch:{:3d}, iter:{:8,d}, lr:('.format(self.epoch, self.current_step)
             for v in self.model.get_current_learning_rate():
                 message += '{:.3e},'.format(v)
@@ -262,41 +282,18 @@ class Trainer:
         if self.current_step % opt['logger']['save_checkpoint_freq'] == 0:
             self.model.consolidate_state()
             if self.rank <= 0:
-                if opt['logger']['disable_state_saving'] is False:
-                    self.logger.info('Saving models and training states.')
-                else:
-                    self.logger.info('Saving model.')
+                for i, (loss_mel_ce, state) in enumerate(self.top_models):
+                    self.logger.info('Saving top model %d with loss %.4e.' % (i+1, loss_mel_ce))
+                    model_path = os.path.join(self.opt['path']['models'], 'model_%d.pth' % (i+1))
+                    torch.save(state['model'], model_path)
 
-                if opt['upgrades']['number_of_checkpoints_to_save'] > 0 or \
-                        opt['upgrades']['number_of_states_to_save'] > 0:
-
-                    number_of_states_to_save = opt['upgrades']['number_of_states_to_save'] \
-                        if not opt['logger']['disable_state_saving'] else 0
-
-                    self.logger.info(
-                        f"Leaving only {opt['upgrades']['number_of_checkpoints_to_save']} checkpoints and "
-                        f"{number_of_states_to_save} states"
-                    )
-                    self.model.limit_number_of_checkpoints_and_states(
-                        next(iter(opt['networks'].keys())),
-                        models_number=opt['upgrades']['number_of_checkpoints_to_save'],
-                        state_number=opt['upgrades']['number_of_states_to_save'],
-                    )
-
-                self.model.save(self.current_step)
-                state = {'epoch': self.epoch, 'iter': self.current_step, 'total_data_processed': self.total_training_data_encountered}
-                if self.dataset_debugger is not None:
-                    state['dataset_debugger_state'] = self.dataset_debugger.get_state()
-                if opt['logger']['disable_state_saving'] is False:
-                    self.model.save_training_state(state)
-                else:
-                    self.logger.info("State saving is disabled. Skipping state save, you won't be able to resume training from this session.")
             if 'alt_path' in opt['path'].keys():
                 import shutil
                 print("Synchronizing tb_logger to alt_path..")
                 alt_tblogger = os.path.join(opt['path']['alt_path'], "tb_logger")
                 shutil.rmtree(alt_tblogger, ignore_errors=True)
                 shutil.copytree(self.tb_logger_path, alt_tblogger)
+
 
         do_eval = self.total_training_data_encountered > self.next_eval_step
         if do_eval:
