@@ -349,7 +349,6 @@ class Trainer:
             _t = time()
             for train_data in tq_ldr:
                 self.do_step(train_data)
-                print(f' the loss is {self.model.loss}')
 
     def create_training_generator(self, index):
         self.logger.info('Start training from epoch: {:d}, iter: {:d}'.format(self.start_epoch, self.current_step))
