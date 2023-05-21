@@ -289,6 +289,7 @@ class Trainer:
                     print('Saving top model %d with loss %.4e.' % (i+1, loss_mel_ce))
                     model_path = os.path.join(self.opt['path']['models'], 'model_%d.pth' % (i+1))
                     torch.save(state['model'], model_path)
+                    print(f"saved {state['model']} to {model_path}")
 
             if 'alt_path' in opt['path'].keys():
                 import shutil
