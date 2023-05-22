@@ -248,9 +248,11 @@ class Trainer:
                         state['model'][net] = net.state_dict() 
                     if len(self.top_models) >= 10:
                         # Remove the model with the highest loss
+                        replaced_model_path = os.path.join(self.opt['path']['models'], f'model_{i+1}_{self.top_models[-1][0]:.4e}.pth')
+                        os.remove(replaced_model_path)
                         self.top_models.pop()
                     self.top_models.append((loss_mel_ce, state))
-                    self.top_models.sort(key=lambda x: x[0])
+                self.top_models.sort(key=lambda x: x[0])
 
             message = '[epoch:{:3d}, iter:{:8,d}, lr:('.format(self.epoch, self.current_step)
             for v in self.model.get_current_learning_rate():
