@@ -267,6 +267,7 @@ class Trainer:
                         # Remove the model with the highest loss
                         if highest_loss_file is not None:
                             os.remove(highest_loss_file)
+                            print(f'remove highest loss file {highest_loss_file}')
 
                         # # Remove the model with the highest loss
                         # replaced_model_path = os.path.join(self.opt['path']['models'], f'model_{len(self.top_models)}_{self.top_models[-1][0]:.4e}.pth')
