@@ -5,6 +5,8 @@ import argparse
 import random
 import logging
 import shutil
+import glob
+import re
 
 from tqdm import tqdm
 
@@ -247,9 +249,28 @@ class Trainer:
                     for net in self.model.networks.values():
                         state['model'][net] = net.state_dict() 
                     if len(self.top_models) >= 10:
+
+                        # Assuming model files are named like: model_X_LOSS.pth
+                        model_files = glob.glob(os.path.join(self.opt['path']['models'], 'model_*.pth'))
+
+                        # Parse loss from filenames and identify the model with the highest loss
+                        highest_loss = -1
+                        highest_loss_file = None
+                        for model_file in model_files:
+                            match = re.search(r'model_\d+_(\d+\.\d+e[\+-]\d+)\.pth', model_file)
+                            if match:
+                                loss = float(match.group(1))
+                                if loss > highest_loss:
+                                    highest_loss = loss
+                                    highest_loss_file = model_file
+
                         # Remove the model with the highest loss
-                        replaced_model_path = os.path.join(self.opt['path']['models'], f'model_{i+1}_{self.top_models[-1][0]:.4e}.pth')
-                        os.remove(replaced_model_path)
+                        if highest_loss_file is not None:
+                            os.remove(highest_loss_file)
+
+                        # # Remove the model with the highest loss
+                        # replaced_model_path = os.path.join(self.opt['path']['models'], f'model_{len(self.top_models)}_{self.top_models[-1][0]:.4e}.pth')
+                        # os.remove(replaced_model_path)
                         self.top_models.pop()
                     self.top_models.append((loss_mel_ce, state))
                 self.top_models.sort(key=lambda x: x[0])
