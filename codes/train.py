@@ -313,7 +313,7 @@ class Trainer:
                     print('Saving top model %d with loss %.4e.' % (i+1, loss_mel_ce))
                     model_path = os.path.join(self.opt['path']['models'], 'model_%d_%.4e.pth' % (i+1,loss_mel_ce))
                     #torch.save(state['model'], model_path)
-                    print(f' save model name={self.model.save.__name__}')
+                    print(f' save model name={self.current_step}')
                     self.model.save(self.current_step)
                     print(f"saved to {model_path}")
 
